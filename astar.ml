@@ -38,7 +38,7 @@ let next_routes current =
 
 type cost = float
 type score = float
-type node = {pos:pos; cost:cost; score:score; from:pos option}
+type node = {pos:pos; cost:cost; score:score; prev:pos option}
 
 let plus a b = a +. b
 let cost_to_move prev_pos now_pos = 1.0
@@ -71,18 +71,18 @@ let find_same_pos nodeset pos =
       else (found_node_opt, node::resultset)
     ) (None, []) nodeset
 
-let create_node pos score from_node =
+let create_node pos score prev_node =
   { pos=pos;
-    cost=plus from_node.cost (cost_to_move from_node.pos pos);
+    cost=plus prev_node.cost (cost_to_move prev_node.pos pos);
     score=score;
-    from=Some from_node.pos }
+    prev=Some prev_node.pos }
 
 let string_of_node node =
-  Printf.sprintf "pos=%s, cost=%s, score=%s, from=%s"
+  Printf.sprintf "pos=%s, cost=%s, score=%s, prev=%s"
     (string_of_pos node.pos)
     (string_of_cost node.cost)
     (string_of_score node.score)
-    (match node.from with None -> "(----)" | Some from -> string_of_pos from)
+    (match node.prev with None -> "(----)" | Some prev -> string_of_pos prev)
 
 let print_nodeset nodeset =
   List.iter (fun node -> print_endline (string_of_node node)) nodeset
@@ -91,7 +91,7 @@ let sort closeset =
   let rec _sort prev sorted = 
     let node = List.find (fun node -> node.pos = prev) closeset in
     let sorted = node::sorted in
-    match node.from with
+    match node.prev with
     | Some prev -> _sort prev sorted
     | None -> sorted
   in
@@ -143,7 +143,7 @@ let run () =
       _run openset closeset
     )
   in
-  let start_node = {pos=start; cost=0.0; score=h start; from=None} in
+  let start_node = {pos=start; cost=0.0; score=h start; prev=None} in
   _run [start_node] []
 
 let _ = 
