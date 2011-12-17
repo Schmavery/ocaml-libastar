@@ -17,6 +17,10 @@ let len_x = Array.length maze.(0)
 let len_y = Array.length maze
 let start = {x=0; y=0}
 let goal = {x=len_x - 1; y=len_y - 1}
+let plus a b = a +. b
+let cost_to_move prev_pos now_pos = 1.0
+let compare_cost = compare
+let string_of_cost = string_of_float
 
 let h pos = 
   sqrt (
@@ -37,25 +41,19 @@ let next_routes current =
     [] [(0, -1); (0, 1); (-1, 0); (1, 0)]
 
 type cost = float
-type score = float
-type node = {pos:pos; cost:cost; score:score; prev:pos option}
+type node = {pos:pos; cost:cost; score:cost; prev:pos option}
 
-let plus a b = a +. b
-let cost_to_move prev_pos now_pos = 1.0
-let compare = compare
-let string_of_score = string_of_float
-let string_of_cost = string_of_float
 
 let score prev now_pos =
   (plus (plus prev.cost (cost_to_move prev.pos now_pos)) (h now_pos))
 
-let remove_minimum_node nodeset =
+let remove_minimum_score_node nodeset =
   let (minimum_opt, resultset) =
     List.fold_left
       (fun (candidate_opt, resultset) node ->
         match candidate_opt with
         | None -> (Some node, resultset)
-        | Some candidate when compare candidate.score node.score > 0 ->
+        | Some candidate when compare_cost candidate.score node.score > 0 ->
                (Some node, candidate::resultset)
         | _ -> (candidate_opt, node::resultset)
       ) (None, []) nodeset
@@ -81,7 +79,7 @@ let string_of_node node =
   Printf.sprintf "pos=%s, cost=%s, score=%s, prev=%s"
     (string_of_pos node.pos)
     (string_of_cost node.cost)
-    (string_of_score node.score)
+    (string_of_cost node.score)
     (match node.prev with None -> "(----)" | Some prev -> string_of_pos prev)
 
 let print_nodeset nodeset =
@@ -109,7 +107,7 @@ let run () =
     print_endline "----------------------------------------";
     print_nodeset closeset;
     *)
-    let (node, openset) = remove_minimum_node openset in
+    let (node, openset) = remove_minimum_score_node openset in
     let closeset = node::closeset in
     if node.pos = goal then (sort closeset)
     else (
