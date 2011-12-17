@@ -1,69 +1,25 @@
-type field = O | X
-let maze = [|
-  [|O;O;O;O;O;O;O;O;O;O;O;O;O;O;O;O;O;X;O;O;O|];
-  [|O;O;O;X;X;O;O;X;X;X;X;O;O;O;O;O;O;X;O;O;O|];
-  [|O;X;O;O;X;O;O;X;O;O;X;O;X;X;X;X;X;X;O;O;O|];
-  [|O;X;X;X;X;O;O;O;O;O;X;O;O;O;O;O;O;O;O;O;O|];
-  [|O;O;O;O;O;O;O;O;O;O;X;O;O;O;O;O;X;X;X;X;O|];
-  [|O;O;O;X;X;X;O;X;O;O;X;O;O;O;O;O;O;O;O;X;O|];
-  [|O;O;O;O;O;X;O;X;X;X;X;O;O;O;O;O;O;O;O;X;O|];
-  [|O;X;O;O;O;X;O;O;O;O;O;O;O;O;O;X;X;X;X;X;O|];
-  [|O;X;X;X;X;X;O;O;O;X;X;X;X;X;O;O;O;O;O;O;O|];
-  [|O;O;O;O;O;O;O;O;O;O;O;O;O;X;O;O;X;X;X;X;X|];
-  [|O;O;O;O;O;O;O;O;O;O;O;O;O;X;O;O;O;O;O;O;O|];
-  |]
-type pos = {x:int; y:int}
-type cost = float
-let len_x = Array.length maze.(0)
-let len_y = Array.length maze
-let start = {x=0; y=0}
-let goal = {x=len_x - 1; y=len_y - 1}
-let plus a b = a +. b
-let init_cost = 0.0
-let cost_to_move prev_pos now_pos = 1.0
-let compare_cost = compare
-let string_of_cost = string_of_float
-
-let h pos = 
-  sqrt (
-    (float_of_int (goal.x - pos.x)) ** 2.0 +.
-    (float_of_int (goal.y - pos.y)) ** 2.0
-  )
-
-let string_of_pos pos = Printf.sprintf "(%d, %d)" pos.x pos.y
-
-let next_routes current =
-  List.fold_left
-    (fun next_points (dx, dy) ->
-      let (x, y) = (current.x - dx, current.y - dy) in
-      if x >= 0 && y >= 0 && x < len_x && y < len_y && maze.(y).(x) = O
-      then {x=x; y=y}::next_points
-      else next_points
-    )
-    [] [(0, -1); (0, 1); (-1, 0); (1, 0)]
-
 module type RouteType = sig
   type pos
   type cost
   val start : pos
   val goal : pos
-  val plus : cost -> cost -> cost
+  val add_cost: cost -> cost -> cost
   val init_cost : cost
   val cost_to_move : pos -> pos -> cost
   val compare_cost : cost -> cost -> int
-  val string_of_cost : cost -> string
-  val h : pos -> cost
-  val string_of_pos : pos -> string
+  val heuristic : pos -> cost
   val next_routes : pos -> pos list
 end
 
-module Make(Route:RouteType) = struct
+module Make(Route:RouteType) : sig
+  val run : unit -> (Route.pos * Route.pos option * Route.cost) list
+end = struct
   type node = {pos:Route.pos; cost:Route.cost; score:Route.cost; prev:Route.pos option}
 
   let score prev now_pos =
-    (Route.plus
-      (Route.plus prev.cost (Route.cost_to_move prev.pos now_pos))
-      (Route.h now_pos)
+    (Route.add_cost
+      (Route.add_cost prev.cost (Route.cost_to_move prev.pos now_pos))
+      (Route.heuristic now_pos)
     )
 
   let remove_minimum_score_node nodeset =
@@ -90,10 +46,11 @@ module Make(Route:RouteType) = struct
 
   let create_node pos score prev_node =
     { pos=pos;
-      cost=Route.plus prev_node.cost (Route.cost_to_move prev_node.pos pos);
+      cost=Route.add_cost prev_node.cost (Route.cost_to_move prev_node.pos pos);
       score=score;
       prev=Some prev_node.pos }
 
+  (*
   let string_of_node node =
     Printf.sprintf "pos=%s, cost=%s, score=%s, prev=%s"
       (Route.string_of_pos node.pos)
@@ -103,6 +60,7 @@ module Make(Route:RouteType) = struct
 
   let print_nodeset nodeset =
     List.iter (fun node -> print_endline (string_of_node node)) nodeset
+  *)
 
   let sort closeset =
     let rec _sort prev sorted = 
@@ -113,6 +71,9 @@ module Make(Route:RouteType) = struct
       | None -> sorted
     in
     _sort Route.goal []
+
+  let result_of_node xs =
+    List.map (fun x -> (x.pos, x.prev, x.cost)) xs
 
   let run () =
     let rec _run openset closeset =
@@ -128,7 +89,7 @@ module Make(Route:RouteType) = struct
       *)
       let (node, openset) = remove_minimum_score_node openset in
       let closeset = node::closeset in
-      if node.pos = Route.goal then (sort closeset)
+      if node.pos = Route.goal then result_of_node (sort closeset)
       else (
         let openset =
           List.fold_left
@@ -160,6 +121,6 @@ module Make(Route:RouteType) = struct
         _run openset closeset
       )
     in
-    let start_node = {pos=Route.start; cost=Route.init_cost; score=Route.h Route.start; prev=None} in
+    let start_node = {pos=Route.start; cost=Route.init_cost; score=Route.heuristic Route.start; prev=None} in
     _run [start_node] []
-end
+  end
