@@ -1,10 +1,7 @@
 module type RouteType = sig
   type pos
   type cost
-  val start : pos
-  val goal : pos
   val add_cost: cost -> cost -> cost
-  val init_cost : cost
   val cost_to_move : pos -> pos -> cost
   val compare_cost : cost -> cost -> int
   val heuristic : pos -> cost
@@ -12,7 +9,8 @@ module type RouteType = sig
 end
 
 module Make(Route:RouteType) : sig
-  val run : unit -> (Route.pos * Route.pos option * Route.cost) list
+  val run : Route.pos -> Route.pos -> Route.cost ->
+            (Route.pos * Route.pos option * Route.cost) list
 end = struct
   type node = {pos:Route.pos; cost:Route.cost; score:Route.cost; prev:Route.pos option}
 
@@ -62,7 +60,7 @@ end = struct
     List.iter (fun node -> print_endline (string_of_node node)) nodeset
   *)
 
-  let sort closeset =
+  let sort closeset goal =
     let rec _sort prev sorted = 
       let node = List.find (fun node -> node.pos = prev) closeset in
       let sorted = node::sorted in
@@ -70,12 +68,12 @@ end = struct
       | Some prev -> _sort prev sorted
       | None -> sorted
     in
-    _sort Route.goal []
+    _sort goal []
 
   let result_of_node xs =
     List.map (fun x -> (x.pos, x.prev, x.cost)) xs
 
-  let run () =
+  let run start goal init_cost =
     let rec _run openset closeset =
       (*
       print_endline "========================================";
@@ -89,7 +87,7 @@ end = struct
       *)
       let (node, openset) = remove_minimum_score_node openset in
       let closeset = node::closeset in
-      if node.pos = Route.goal then result_of_node (sort closeset)
+      if node.pos = goal then result_of_node (sort closeset goal)
       else (
         let openset =
           List.fold_left
@@ -121,6 +119,6 @@ end = struct
         _run openset closeset
       )
     in
-    let start_node = {pos=Route.start; cost=Route.init_cost; score=Route.heuristic Route.start; prev=None} in
+    let start_node = {pos=start; cost=init_cost; score=Route.heuristic start; prev=None} in
     _run [start_node] []
   end
